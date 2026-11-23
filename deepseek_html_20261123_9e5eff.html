@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LunaOS · mô phỏng hệ điều hành</title>
+
+<!-- ===== THƯ VIỆN CDN ===== -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/weekday.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.0/lib/browser/math.js"></script>
+
+<style>
+:root { --accent:#7f9cf5; --accent-rgb:127,156,245; }
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+body { background:#0b0e14; display:flex; justify-content:center; align-items:center;
+    min-height:100vh; padding:16px; overflow:hidden; }
+
+/* ===== DESKTOP ===== */
+.desktop { position:relative; width:1200px; max-width:100%; height:700px; max-height:92vh;
+    background:radial-gradient(circle at 20% 30%, #1a1f2e, #0d1017);
+    border-radius:28px; box-shadow:0 25px 50px -8px rgba(0,0,0,.8), inset 0 1px 2px rgba(255,255,255,.05);
+    overflow:hidden; border:1px solid rgba(255,255,255,.06); display:flex; flex-direction:column; }
+.wallpaper { position:absolute; inset:0; z-index:0; transition:background .4s;
+    background:radial-gradient(circle at 20% 30%, #1a1f2e, #0d1017); }
+
+/* ===== TOP BAR ===== */
+.top-bar { position:relative; z-index:50; display:flex; justify-content:space-between; align-items:center;
+    padding:8px 20px; background:rgba(18,22,33,.65); backdrop-filter:blur(16px);
+    border-bottom:1px solid rgba(255,255,255,.05); color:#eef2ff; font-size:13px; font-weight:500; }
+.top-left,.top-right { display:flex; align-items:center; gap:16px; }
+.luna-logo { display:flex; align-items:center; gap:8px; font-weight:600; color:#b7c9ff; }
+.luna-logo i { font-size:18px; color:var(--accent); }
+.status-icons { display:flex; gap:14px; font-size:14px; opacity:.9; }
+.clock { font-feature-settings:"tnum"; font-weight:500; background:rgba(255,255,255,.05);
+    padding:4px 12px; border-radius:40px; border:1px solid rgba(255,255,255,.06); cursor:pointer; }
+.clock:hover { background:rgba(255,255,255,.1); }
+
+/* ===== MAIN ===== */
+.main-area { position:relative; z-index:5; flex:1; display:flex; padding:20px; overflow:hidden; }
+.desktop-icons { position:absolute; top:10px; left:20px; width:100px; z-index:5; pointer-events:none; }
+.icon-item { position:absolute; width:80px; display:flex; flex-direction:column; align-items:center;
+    gap:6px; color:#fff; text-shadow:0 2px 6px #000; font-size:12px; font-weight:500; opacity:.9;
+    transition:background .2s, transform .15s; cursor:grab; padding:6px 4px; border-radius:10px;
+    pointer-events:auto; touch-action:none; }
+.icon-item:hover { background:rgba(255,255,255,.08); transform:scale(1.03); }
+.icon-item i { font-size:26px; filter:drop-shadow(0 4px 6px rgba(0,0,0,.5)); color:#cbd5ff; }
+
+#windowsLayer { position:relative; z-index:10; flex:1; pointer-events:none; }
+.window { position:absolute; background:rgba(22,26,38,.93); backdrop-filter:blur(18px);
+    border-radius:16px; border:1px solid rgba(255,255,255,.08); box-shadow:0 20px 35px -10px rgba(0,0,0,.7);
+    display:flex; flex-direction:column; overflow:hidden; color:#e2e8f0;
+    width:560px; max-width:calc(100% - 20px); pointer-events:auto; touch-action:none; }
+.window-header { display:flex; align-items:center; justify-content:space-between; padding:9px 14px;
+    background:rgba(255,255,255,.03); border-bottom:1px solid rgba(255,255,255,.05);
+    cursor:grab; flex-shrink:0; }
+.window-header:active { cursor:grabbing; }
+.window-title { display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600;
+    color:#b9c8ff; pointer-events:none; }
+.window-controls { display:flex; gap:9px; }
+.win-btn { width:13px; height:13px; border-radius:50%; background:#4b5563; transition:.15s; cursor:pointer; }
+.win-btn.close{background:#f87171;} .win-btn.minimize{background:#fbbf24;} .win-btn.maximize{background:#34d399;}
+.win-btn:hover { opacity:.8; transform:scale(1.15); }
+.window-content { padding:16px 18px; font-size:14px; line-height:1.55; color:#cbd5e1;
+    overflow-y:auto; flex:1; max-height:340px; }
+.window-content::-webkit-scrollbar { width:6px; }
+.window-content::-webkit-scrollbar-thumb { background:#2d3748; border-radius:10px; }
+.window-footer { padding:7px 16px; border-top:1px solid rgba(255,255,255,.04); font-size:11px;
+    color:#8b9dc3; display:flex; justify-content:space-between; background:rgba(0,0,0,.2); flex-shrink:0; }
+
+/* ===== TERMINAL ===== */
+.terminal-content { background:#0f1219; font-family:'Courier New',monospace; font-size:13px;
+    color:#a5f3fc; padding:12px; border-radius:8px; border:1px solid #1e293b; height:100%;
+    display:flex; flex-direction:column; }
+.term-output { flex:1; overflow-y:auto; white-space:pre-wrap; word-break:break-word; max-height:220px; }
+.term-input-line { display:flex; gap:8px; margin-top:8px; align-items:center; }
+.prompt { color:#6ee7b7; white-space:nowrap; }
+.term-input { background:transparent; border:none; outline:none; color:#a5f3fc; font-family:inherit;
+    font-size:13px; flex:1; caret-color:#6ee7b7; }
+
+/* ===== NOTES ===== */
+.note-textarea { width:100%; height:180px; background:#0f1219; border:1px solid #1e293b; border-radius:8px;
+    color:#e2e8f0; padding:10px; font-family:inherit; font-size:13px; resize:vertical; outline:none; }
+.note-textarea:focus { border-color:var(--accent); }
+.btn { background:rgba(var(--accent-rgb),.2); border:1px solid rgba(var(--accent-rgb),.4); color:var(--accent);
+    padding:7px 14px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:500; transition:.15s; }
+.btn:hover { background:rgba(var(--accent-rgb),.35); color:#fff; }
+.btn.danger { background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.4); color:#fca5a5; }
+.btn.danger:hover { background:rgba(248,113,113,.3); }
+
+/* ===== CALC ===== */
+.calc-display { background:#0f1219; border:1px solid #1e293b; border-radius:8px; padding:12px 14px;
+    text-align:right; font-size:22px; font-weight:600; color:#fff; margin-bottom:12px;
+    overflow:hidden; text-overflow:ellipsis; }
+.calc-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.calc-btn { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.06); color:#e2e8f0;
+    padding:12px 0; border-radius:8px; cursor:pointer; font-size:16px; font-weight:500; transition:.1s; }
+.calc-btn:hover { background:rgba(var(--accent-rgb),.2); }
+.calc-btn.op { color:var(--accent); }
+.calc-btn.eq { background:rgba(110,231,183,.2); color:#6ee7b7; border-color:rgba(110,231,183,.3); }
+.calc-btn.clear { color:#fca5a5; }
+
+/* ===== FILES ===== */
+.file-list { display:flex; flex-direction:column; gap:4px; }
+.file-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px; }
+.file-item:hover { background:rgba(255,255,255,.06); }
+.file-item i { color:var(--accent); width:18px; text-align:center; }
+.file-item .size { margin-left:auto; color:#8b9dc3; font-size:11px; }
+
+/* ===== SETTINGS ===== */
+.settings-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0;
+    border-bottom:1px solid rgba(255,255,255,.05); font-size:13px; }
+.settings-row:last-child { border-bottom:none; }
+.picker { display:flex; gap:8px; }
+.swatch { width:28px; height:28px; border-radius:8px; cursor:pointer; border:2px solid transparent; transition:.15s; }
+.swatch:hover { transform:scale(1.1); }
+.swatch.active { border-color:#fff; box-shadow:0 0 10px rgba(var(--accent-rgb),.5); }
+
+/* ===== DOCK ===== */
+.dock { position:relative; z-index:100; margin:0 20px 20px; padding:8px 16px;
+    background:rgba(18,22,33,.8); backdrop-filter:blur(18px); border-radius:50px;
+    border:1px solid rgba(255,255,255,.08); display:flex; align-items:center;
+    justify-content:space-between; box-shadow:0 10px 20px -5px rgba(0,0,0,.6); }
+.dock-left,.dock-center,.dock-right { display:flex; align-items:center; gap:12px; }
+.dock-icon { width:42px; height:42px; border-radius:14px; background:rgba(255,255,255,.03);
+    display:flex; align-items:center; justify-content:center; font-size:19px; color:#b9c8ff;
+    transition:.15s; cursor:pointer; border:1px solid transparent; position:relative; }
+.dock-icon:hover { background:rgba(var(--accent-rgb),.2); border-color:rgba(var(--accent-rgb),.4);
+    transform:translateY(-3px); color:#fff; }
+.dock-icon .badge { position:absolute; top:-4px; right:-4px; background:var(--accent); color:#0b0e14;
+    font-size:9px; font-weight:700; width:16px; height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; }
+.search-bar { background:rgba(0,0,0,.4); border-radius:30px; padding:7px 14px;
+    display:flex; align-items:center; gap:9px; color:#9aa9c7; font-size:13px;
+    border:1px solid rgba(255,255,255,.05); width:190px; }
+.search-bar input { background:transparent; border:none; outline:none; color:#e2e8f0;
+    font-size:13px; flex:1; font-family:inherit; }
+.search-bar input::placeholder { color:#9aa9c7; }
+
+/* ===== TOAST ===== */
+.toast { position:absolute; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:rgba(22,26,38,.95); backdrop-filter:blur(16px); border:1px solid rgba(var(--accent-rgb),.4);
+    color:#e2e8f0; padding:10px 20px; border-radius:12px; font-size:13px; z-index:999;
+    opacity:0; transition:.25s; pointer-events:none; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ===== ANALOG CLOCK ===== */
+.analog-clock-widget { position:absolute; top:70px; right:40px; width:130px; height:130px;
+    z-index:8; cursor:grab; touch-action:none; }
+.analog-clock-widget:hover { filter:drop-shadow(0 0 12px rgba(var(--accent-rgb),.4)); }
+.analog-clock-widget svg { width:100%; height:100%; }
+.analog-clock-widget .face { fill:rgba(22,26,38,.7); stroke:rgba(255,255,255,.1); stroke-width:.5; }
+.analog-clock-widget .tick { stroke:rgba(255,255,255,.25); stroke-width:1.2; }
+.analog-clock-widget .tick-major { stroke:var(--accent); stroke-width:1.8; }
+.analog-clock-widget .hand-h { stroke:#fff; stroke-width:2.5; stroke-linecap:round; }
+.analog-clock-widget .hand-m { stroke:#fff; stroke-width:1.8; stroke-linecap:round; }
+.analog-clock-widget .hand-s { stroke:var(--accent); stroke-width:.9; stroke-linecap:round; }
+.analog-clock-widget .center { fill:var(--accent); }
+
+/* ===== CALENDAR ===== */
+.calendar-popup { position:absolute; bottom:80px; right:180px; width:290px;
+    background:rgba(22,26,38,.97); backdrop-filter:blur(18px);
+    border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:16px;
+    z-index:500; box-shadow:0 20px 40px rgba(0,0,0,.6); color:#e2e8f0; }
+.cal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.cal-title { font-weight:600; font-size:14px; color:#fff; }
+.cal-nav { background:transparent; border:none; color:#9aa9c7; cursor:pointer; font-size:16px; padding:4px 8px; border-radius:6px; }
+.cal-nav:hover { background:rgba(255,255,255,.08); color:#fff; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.cal-dow { text-align:center; font-size:11px; color:#8b9dc3; padding:6px 0; font-weight:600; }
+.cal-day { text-align:center; font-size:12px; padding:7px 0; border-radius:6px; cursor:pointer; }
+.cal-day:hover { background:rgba(255,255,255,.08); }
+.cal-day.other-month { color:#4b5563; }
+.cal-day.today { background:var(--accent); color:#0b0e14; font-weight:700; }
+
+/* ===== POMODORO ===== */
+.pomo-wrap { display:flex; flex-direction:column; align-items:center; gap:14px; padding:8px 0; }
+.pomo-ring { position:relative; width:160px; height:160px; }
+.pomo-ring svg { transform:rotate(-90deg); }
+.pomo-ring .track { fill:none; stroke:rgba(255,255,255,.08); stroke-width:6; }
+.pomo-ring .progress { fill:none; stroke:var(--accent); stroke-width:6; stroke-linecap:round;
+    transition:stroke-dashoffset .3s; }
+.pomo-time { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:700; color:#fff; font-feature-settings:"tnum"; }
+.pomo-status { font-size:12px; color:#8b9dc3; text-transform:uppercase; letter-spacing:1px; }
+.pomo-controls { display:flex; gap:8px; }
+
+/* ===== BOOT OVERLAY ===== */
+.boot-overlay { position:absolute; inset:0; z-index:1000; background:#05080d; color:#c0c0c0;
+    font-family:'Courier New',monospace; font-size:12px; line-height:1.5;
+    padding:24px 28px; display:flex; flex-direction:column; transition:opacity .8s ease; }
+.boot-overlay.hidden { opacity:0; pointer-events:none; }
+.boot-log { flex:1; overflow-y:auto; white-space:pre-wrap; word-break:break-word; padding-right:8px; }
+.boot-line { display:block; }
+.boot-line .ts { color:#6b7280; margin-right:8px; }
+.boot-line .msg { color:#c0c0c0; }
+.boot-line.ok .msg { color:#6ee7b7; }
+.boot-line.warn .msg { color:#fbbf24; }
+.boot-line.err .msg { color:#f87171; }
+.boot-line.accent .msg { color:var(--accent); }
+.boot-progress { height:3px; background:#111820; margin-top:14px; border-radius:2px; overflow:hidden; }
+.boot-progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#6ee7b7,var(--accent)); transition:width .25s; }
+.boot-footer { display:flex; justify-content:space-between; margin-top:10px; font-size:11px; color:#6b7280; }
+.boot-hint { color:#4b5563; opacity:0; transition:opacity .5s; }
+.boot-hint.show { opacity:1; }
+
+@media (max-width:800px) {
+    .desktop { height:auto; }
+    .analog-clock-widget { display:none; }
+    .calendar-popup { right:20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== ALPINE ROOT: toàn bộ desktop là 1 component ===== -->
+<div class="desktop" id="desktop" x-data="lunaOS()" x-init="init()">
+
+    <!-- wallpaper -->
+    <div class="wallpaper" :style="`background:${walls[currentWall]}`"></div>
+
+    <!-- ===== TOP BAR ===== -->
+    <div class="top-bar">
+        <div class="top-left">
+            <div class="luna-logo"><i class="fas fa-moon"></i><span>LunaOS</span></div>
+            <div style="font-size:12px;opacity:.8" x-text="greeting"></div>
+        </div>
+        <div class="top-right">
+            <div class="status-icons">
+                <i class="fas fa-wifi"></i><i class="fas fa-battery-three-quarters"></i><i class="fas fa-volume-up"></i>
+            </div>
+            <div class="clock" x-text="clockText"
+                 @click="toast('🕒 ' + dayjs().format('HH:mm:ss DD/MM/YYYY'))"></div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN ===== -->
+    <div class="main-area">
+        <div class="desktop-icons" id="desktopIcons">
+            <!-- icons render bằng JS (cần Interact.js) -->
+        </div>
+        <div id="windowsLayer"></div>
+    </div>
+
+    <!-- ===== DOCK ===== -->
+    <div class="dock">
+        <div class="dock-left">
+            <template x-for="app in dockApps" :key="app.id">
+                <div class="dock-icon" :title="app.title" @click="openApp(app.id)">
+                    <i class="fas" :class="app.icon"></i>
+                </div>
+            </template>
+            <div class="dock-icon" title="Show Desktop (Alt+Shift+D)" @click="showDesktop()">
+                <i class="fas fa-desktop"></i>
+            </div>
+        </div>
+        <div class="dock-center">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input x-model="searchQuery" placeholder="Tìm ứng dụng..."
+                       @keydown.enter.prevent="handleSearch()">
+            </div>
+        </div>
+        <div class="dock-right">
+            <div class="dock-icon" title="Lịch" @click="calOpen = !calOpen">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="dock-icon" title="Settings" @click="openApp('settings')">
+                <i class="fas fa-cog"></i>
+            </div>
+            <div class="dock-icon" title="Thông báo" @click="toast('🔔 Bạn có 3 thông báo mới')">
+                <i class="fas fa-bell"></i><span class="badge">3</span>
+            </div>
+            <div class="dock-icon" title="Tài khoản" @click="toast('👤 Đăng nhập với tư cách Luna')">
+                <i class="fas fa-user-astronaut"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ANALOG CLOCK ===== -->
+    <div class="analog-clock-widget" id="analogClock" title="Đồng hồ kim (kéo để di chuyển)">
+        <svg viewBox="0 0 100 100">
+            <circle class="face" cx="50" cy="50" r="49"/>
+            <g id="clockTicks"></g>
+            <line id="hourHand" class="hand-h" x1="50" y1="50" x2="50" y2="28"/>
+            <line id="minHand"  class="hand-m" x1="50" y1="50" x2="50" y2="20"/>
+            <line id="secHand"  class="hand-s" x1="50" y1="50" x2="50" y2="16"/>
+            <circle class="center" cx="50" cy="50" r="2.5"/>
+        </svg>
+    </div>
+
+    <!-- ===== CALENDAR ===== -->
+    <div class="calendar-popup animate__animated animate__fadeInUp animate__faster"
+         x-show="calOpen" x-transition.opacity @click.outside="calOpen = false">
+        <div class="cal-header">
+            <button class="cal-nav" @click="calPrev()">‹</button>
+            <div class="cal-title" x-text="calTitle"></div>
+            <button class="cal-nav" @click="calNext()">›</button>
+        </div>
+        <div class="cal-grid">
+            <template x-for="d in ['CN','T2','T3','T4','T5','T6','T7']">
+                <div class="cal-dow" x-text="d"></div>
+            </template>
+            <template x-for="(day, i) in calDays" :key="i">
+                <div class="cal-day" :class="{ 'other-month': !day.current, 'today': day.today }"
+                     x-text="day.n" @click="day.current && toast('📅 ' + day.n + '/' + (calMonth+1) + '/' + calYear)"></div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ===== TOAST ===== -->
+    <div class="toast" :class="{ show: toastShow }" x-text="toastMsg"></div>
+
+    <!-- ===== BOOT OVERLAY ===== -->
+    <div class="boot-overlay" x-show="!bootDone" x-transition.opacity.duration.800ms>
+        <div class="boot-log" id="bootLog"></div>
+        <div class="boot-progress"><div class="boot-progress-bar" id="bootProgressBar"></div></div>
+        <div class="boot-footer">
+            <span id="bootStatus">Đang khởi động LunaOS 1.0 (Starlight)...</span>
+            <span class="boot-hint" id="bootHint">Nhấn ESC để bỏ qua</span>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   LUNA OS · Alpine component
+   ============================================================ */
+function lunaOS() {
+    return {
+        /* ---------- STATE ---------- */
+        bootDone: false,
+        clockText: '',
+        greeting: '',
+        toastShow: false,
+        toastMsg: '',
+        calOpen: false,
+        calMonth: dayjs().month(),
+        calYear: dayjs().year(),
+        searchQuery: '',
+        windows: [],            // {id, title, icon, width, x, y, z, minimized, maximized, html}
+        zCounter: 100,
+        currentWall: 0,
+        currentAccent: 0,
+        pomo: { mode:'work', remaining: 25*60, running:false, timer:null },
+
+        /* ---------- CONSTANTS ---------- */
+        walls: [
+            'radial-gradient(circle at 20% 30%, #1a1f2e, #0d1017)',
+            'radial-gradient(circle at 70% 30%, #2d1b3a, #0d1017)',
+            'radial-gradient(circle at 50% 60%, #1b3a2d, #0d1017)',
+            'radial-gradient(circle at 30% 70%, #3a2a1b, #0d1017)',
+        ],
+        accents: [
+            { name:'Blue',   c:'#7f9cf5', rgb:'127,156,245' },
+            { name:'Purple', c:'#b794f4', rgb:'183,148,244' },
+            { name:'Green',  c:'#6ee7b7', rgb:'110,231,183' },
+            { name:'Pink',   c:'#f472b6', rgb:'244,114,182' },
+            { name:'Orange', c:'#fb923c', rgb:'251,146,60' },
+        ],
+        dockApps: [
+            { id:'terminal', title:'Terminal',   icon:'fa-terminal'   },
+            { id:'files',    title:'Files',      icon:'fa-folder-open'},
+            { id:'notes',    title:'Notes',      icon:'fa-pen'        },
+            { id:'calc',     title:'Calculator', icon:'fa-calculator' },
+            { id:'pomo',     title:'Pomodoro',   icon:'fa-clock'      },
+        ],
+        desktopIcons: [
+            { app:'files',    icon:'fa-folder',     label:'Files'    },
+            { app:'notes',    icon:'fa-pen',        label:'Notes'    },
+            { app:'calc',     icon:'fa-calculator', label:'Calc'     },
+            { app:'pomo',     icon:'fa-clock',      label:'Pomodoro' },
+            { app:'settings', icon:'fa-cog',        label:'Settings' },
+        ],
+
+        /* ---------- INIT ---------- */
+        init() {
+            console.log('[LunaOS] init()');
+            this.restoreAccent();
+            this.restoreWall();
+            this.startClock();
+            this.buildClockTicks();
+            this.buildDesktopIcons();
+            this.initKeyboard();
+            this.initWindowLayerClick();
+            this.runBoot();     // không chờ — chạy song song
+        },
+
+        /* ============================================================
+           BOOT SEQUENCE 33s
+           ============================================================ */
+        async runBoot() {
+            const self = this;
+            try {
+                const log  = document.getElementById('bootLog');
+                const bar  = document.getElementById('bootProgressBar');
+                const hint = document.getElementById('bootHint');
+                if (!log || !bar) { console.error('Boot: thiếu DOM'); this.bootDone = true; return; }
+
+                log.innerHTML =
+                    '<div class="boot-line accent"><span class="ts">[ 0.000000    ]</span>' +
+                    '<span class="msg">LunaOS bootloader v1.0 — nhấn ESC để bỏ qua</span></div>';
+
+                // safety timeout: tối đa 40s
+                setTimeout(() => { if (!self.bootDone) { console.warn('Boot safety timeout'); self.finishBoot(); } }, 40000);
+                setTimeout(() => hint && hint.classList.add('show'), 3000);
+
+                let elapsed = 0;
+                const TOTAL = 33000;
+                const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+                for (const line of BOOT_SCRIPT) {
+                    if (self.bootDone) break;
+                    await sleep(line.d);
+                    if (self.bootDone) break;
+                    elapsed += line.d;
+                    if (line.m !== '') {
+                        const div = document.createElement('div');
+                        div.className = 'boot-line' + (line.cls ? ' ' + line.cls : '');
+                        div.innerHTML = `<span class="ts">[ ${line.t.padEnd(12)} ]</span><span class="msg">${esc(line.m)}</span>`;
+                        log.appendChild(div);
+                        log.scrollTop = log.scrollHeight;
+                    }
+                    bar.style.width = Math.min(100, (elapsed / TOTAL) * 100) + '%';
+                }
+                this.finishBoot();
+            } catch (err) {
+                console.error('[Boot] lỗi:', err);
+                this.finishBoot();
+            }
+        },
+
+        finishBoot() {
+            if (this.bootDone) return;
+            this.bootDone = true;
+            console.log('[Boot] hoàn tất');
+            setTimeout(() => {
+                if (this.windows.length === 0) this.openApp('terminal');
+            }, 1000);
+        },
+
+        /* ============================================================
+           CLOCK + GREETING (dùng Day.js)
+           ============================================================ */
+        startClock() {
+            const update = () => {
+                this.clockText = dayjs().format('HH:mm');
+                const h = dayjs().hour();
+                let g = 'Đêm muộn';
+                if (h >= 5 && h < 12) g = 'Chào buổi sáng';
+                else if (h >= 12 && h < 18) g = 'Chào buổi chiều';
+                else if (h >= 18 && h < 22) g = 'Chào buổi tối';
+                this.greeting = g + ', Luna';
+                this.updateAnalogClock();
+            };
+            update();
+            setInterval(update, 1000);
+        },
+
+        buildClockTicks() {
+            const g = document.getElementById('clockTicks');
+            if (!g) return;
+            const NS = 'http://www.w3.org/2000/svg';
+            for (let i = 0; i < 12; i++) {
+                const a = (i * 30 - 90) * Math.PI / 180;
+                const r1 = i % 3 === 0 ? 38 : 42;
+                const line = document.createElementNS(NS, 'line');
+                line.setAttribute('x1', 50 + Math.cos(a) * r1);
+                line.setAttribute('y1', 50 + Math.sin(a) * r1);
+                line.setAttribute('x2', 50 + Math.cos(a) * 46);
+                line.setAttribute('y2', 50 + Math.sin(a) * 46);
+                line.setAttribute('class', i % 3 === 0 ? 'tick tick-major' : 'tick');
+                g.appendChild(line);
+            }
+            // kéo đồng hồ bằng Interact.js
+            interact('#analogClock').draggable({
+                listeners: {
+                    move: (e) => {
+                        const el = e.target;
+                        const x = (parseFloat(el.dataset.x) || 0) + e.dx;
+                        const y = (parseFloat(el.dataset.y) || 0) + e.dy;
+                        el.dataset.x = x; el.dataset.y = y;
+                        el.style.transform = `translate(${x}px, ${y}px)`;
+                    },
+                    end: (e) => {
+                        localStorage.setItem('luna-clock-pos', JSON.stringify({
+                            x: e.target.dataset.x, y: e.target.dataset.y
+                        }));
+                    }
+                }
+            });
+            const saved = localStorage.getItem('luna-clock-pos');
+            if (saved) {
+                const p = JSON.parse(saved);
+                const el = document.getElementById('analogClock');
+                el.dataset.x = p.x; el.dataset.y = p.y;
+                el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            }
+        },
+
+        updateAnalogClock() {
+            const now = dayjs();
+            const sec = now.second();
+            const min = now.minute() + sec / 60;
+            const hr  = (now.hour() % 12) + min / 60;
+            const rot = (id, deg) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.transformOrigin = '50px 50px';
+                    el.style.transform = `rotate(${deg}deg)`;
+                }
+            };
+            rot('secHand', sec * 6);
+            rot('minHand', min * 6);
+            rot('hourHand', hr * 30);
+        },
+
+        /* ============================================================
+           THEME / WALLPAPER
+           ============================================================ */
+        restoreAccent() {
+            const i = parseInt(localStorage.getItem('luna-accent') || '0');
+            this.applyAccent(i);
+        },
+        applyAccent(i) {
+            const a = this.accents[i];
+            if (!a) return;
+            document.documentElement.style.setProperty('--accent', a.c);
+            document.documentElement.style.setProperty('--accent-rgb', a.rgb);
+            this.currentAccent = i;
+            localStorage.setItem('luna-accent', i);
+        },
+        restoreWall() {
+            this.currentWall = parseInt(localStorage.getItem('luna-wall') || '0');
+        },
+
+        /* ============================================================
+           TOAST
+           ============================================================ */
+        toast(msg) {
+            this.toastMsg = msg;
+            this.toastShow = true;
+            clearTimeout(this._toastTimer);
+            this._toastTimer = setTimeout(() => this.toastShow = false, 2600);
+        },
+
+        /* ============================================================
+           DESKTOP ICONS + INTERACT.JS
+           ============================================================ */
+        buildDesktopIcons() {
+            const container = document.getElementById('desktopIcons');
+            this.desktopIcons.forEach((d, i) => {
+                const el = document.createElement('div');
+                el.className = 'icon-item';
+                el.dataset.app = d.app;
+                el.innerHTML = `<i class="fas ${d.icon}"></i><span>${d.label}</span>`;
+                const saved = localStorage.getItem('luna-icon-' + d.app);
+                const pos = saved ? JSON.parse(saved) : { x: 0, y: i * 80 };
+                el.dataset.x = pos.x; el.dataset.y = pos.y;
+                el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+                el.addEventListener('click', (e) => {
+                    if (el.dataset.dragged === '1') { el.dataset.dragged = '0'; return; }
+                    this.openApp(d.app);
+                });
+                interact(el).draggable({
+                    listeners: {
+                        start: () => { el.dataset.moved = '0'; },
+                        move: (e) => {
+                            if (Math.abs(e.dx) > 1 || Math.abs(e.dy) > 1) el.dataset.moved = '1';
+                            const x = (parseFloat(el.dataset.x) || 0) + e.dx;
+                            const y = (parseFloat(el.dataset.y) || 0) + e.dy;
+                            el.dataset.x = x; el.dataset.y = y;
+                            el.style.transform = `translate(${x}px, ${y}px)`;
+                        },
+                        end: (e) => {
+                            if (el.dataset.moved === '1') {
+                                el.dataset.dragged = '1';
+                                localStorage.setItem('luna-icon-' + d.app, JSON.stringify({
+                                    x: el.dataset.x, y: el.dataset.y
+                                }));
+                            }
+                        }
+                    }
+                });
+                container.appendChild(el);
+            });
+        },
+
+        /* ============================================================
+           WINDOW MANAGER — Alpine state
+           ============================================================ */
+        openApp(id) {
+            const app = APPS[id];
+            if (!app) return this.toast('❌ Không có ứng dụng: ' + id);
+            const existing = this.windows.find(w => w.id === id);
+            if (existing) {
+                existing.minimized = false;
+                existing.z = ++this.zCounter;
+                return;
+            }
+            this.windows.push({
+                id, title: app.title, icon: app.icon, width: app.width,
+                x: 60 + Math.random() * 40, y: 40 + Math.random() * 30,
+                z: ++this.zCounter, minimized: false, maximized: false,
+                html: '', render: app.render,
+            });
+            this.$nextTick(() => {
+                const el = document.getElementById('win-' + id);
+                if (el && app.render) app.render(this, el);
+                if (el) {
+                    this.makeWindowDraggable(el, id);
+                    // focus input nếu là terminal
+                    const inp = el.querySelector('.term-input');
+                    if (inp) inp.focus();
+                }
+            });
+        },
+        closeWindow(id) {
+            const el = document.getElementById('win-' + id);
+            if (el) {
+                el.classList.add('animate__animated', 'animate__zoomOut', 'animate__faster');
+                setTimeout(() => {
+                    this.windows = this.windows.filter(w => w.id !== id);
+                }, 200);
+            } else {
+                this.windows = this.windows.filter(w => w.id !== id);
+            }
+        },
+        minimizeWindow(id) {
+            const w = this.windows.find(x => x.id === id);
+            if (w) w.minimized = true;
+        },
+        focusWindow(id) {
+            const w = this.windows.find(x => x.id === id);
+            if (w) { w.minimized = false; w.z = ++this.zCounter; }
+        },
+        toggleMaximize(id) {
+            const w = this.windows.find(x => x.id === id);
+            if (w) w.maximized = !w.maximized;
+        },
+        makeWindowDraggable(el, id) {
+            const header = el.querySelector('.window-header');
+            const self = this;
+            interact(el).draggable({
+                allowFrom: header,
+                ignoreFrom: '.win-btn',
+                listeners: {
+                    move: (e) => {
+                        const w = self.windows.find(x => x.id === id);
+                        if (!w || w.maximized) return;
+                        w.x += e.dx; w.y += e.dy;
+                        // cập nhật DOM ngay
+                        el.style.left = w.x + 'px';
+                        el.style.top  = w.y + 'px';
+                        e.target.dataset.x = w.x;
+                        e.target.dataset.y = w.y;
+                    }
+                }
+            });
+            // set vị trí ban đầu
+            const w = this.windows.find(x => x.id === id);
+            if (w) { el.style.left = w.x + 'px'; el.style.top = w.y + 'px'; }
+            // đưa lên trước khi mousedown
+            el.addEventListener('mousedown', () => { self.focusWindow(id); });
+        },
+        windowStyle(w) {
+            if (w.maximized) return 'left:0;top:0;width:100%;height:100%;';
+            return `left:${w.x}px;top:${w.y}px;width:${w.width}px;z-index:${w.z};`;
+        },
+        initWindowLayerClick() {
+            // không cần — đã xử lý ở mousedown
+        },
+        getFocusedWindow() {
+            let best = null, bestZ = -1;
+            this.windows.forEach(w => {
+                if (w.minimized) return;
+                if (w.z > bestZ) { bestZ = w.z; best = w.id; }
+            });
+            return best;
+        },
+        showDesktop() {
+            this.windows.forEach(w => w.minimized = true);
+            this.toast('🖥️ Hiển thị màn hình chính');
+        },
+
+        /* ============================================================
+           CALENDAR
+           ============================================================ */
+        get calTitle() {
+            return dayjs().month(this.calMonth).year(this.calYear).format('[Tháng] M, YYYY');
+        },
+        get calDays() {
+            const first = dayjs().year(this.calYear).month(this.calMonth).date(1);
+            const daysInMonth = first.daysInMonth();
+            const startDay = first.day();
+            const prevDays = first.subtract(1, 'day').daysInMonth();
+            const today = dayjs();
+            const arr = [];
+            for (let i = startDay - 1; i >= 0; i--) arr.push({ n: prevDays - i, current: false, today: false });
+            for (let d = 1; d <= daysInMonth; d++) {
+                arr.push({
+                    n: d, current: true,
+                    today: d === today.date() && this.calMonth === today.month() && this.calYear === today.year()
+                });
+            }
+            const remaining = (7 - (arr.length % 7)) % 7;
+            for (let d = 1; d <= remaining; d++) arr.push({ n: d, current: false, today: false });
+            return arr;
+        },
+        calPrev() {
+            this.calMonth--;
+            if (this.calMonth < 0) { this.calMonth = 11; this.calYear--; }
+        },
+        calNext() {
+            this.calMonth++;
+            if (this.calMonth > 11) { this.calMonth = 0; this.calYear++; }
+        },
+
+        /* ============================================================
+           KEYBOARD SHORTCUTS
+           ============================================================ */
+        initKeyboard() {
+            window.addEventListener('keydown', (e) => {
+                if (!this.bootDone) {
+                    if (e.key === 'Escape') { e.preventDefault(); this.finishBoot(); }
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    const f = this.getFocusedWindow();
+                    if (f) { this.closeWindow(f); e.preventDefault(); }
+                }
+                if (e.ctrlKey && e.altKey) {
+                    const map = { t:'terminal', n:'notes', c:'calc', f:'files', s:'settings' };
+                    const k = e.key.toLowerCase();
+                    if (map[k]) { this.openApp(map[k]); e.preventDefault(); }
+                }
+                if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+                    this.showDesktop(); e.preventDefault();
+                }
+            });
+        },
+
+        /* ============================================================
+           SEARCH
+           ============================================================ */
+        handleSearch() {
+            const q = this.searchQuery.trim().toLowerCase();
+            if (!q) return;
+            const match = Object.keys(APPS).find(a =>
+                a.includes(q) || APPS[a].title.toLowerCase().includes(q));
+            if (match) { this.openApp(match); this.toast('🔍 Đã mở: ' + APPS[match].title); }
+            else this.toast('❌ Không tìm thấy: ' + q);
+            this.searchQuery = '';
+        },
+    };
+}
+
+/* ============================================================
+   APPS — render(el, ctx)
+   ============================================================ */
+const APPS = {
+    terminal: { title:'Terminal', icon:'fa-terminal', width:560, render: renderTerminal },
+    notes:    { title:'Notes', icon:'fa-pen', width:480, render: renderNotes },
+    calc:     { title:'Calculator', icon:'fa-calculator', width:320, render: renderCalc },
+    files:    { title:'Files', icon:'fa-folder', width:460, render: renderFiles },
+    settings: { title:'Settings', icon:'fa-cog', width:440, render: renderSettings },
+    pomo:     { title:'Pomodoro', icon:'fa-clock', width:360, render: renderPomodoro },
+};
+
+/* ----- TERMINAL ----- */
+function renderTerminal(ctx, el) {
+    const content = el.querySelector('.window-content');
+    content.innerHTML = `
+        <div class="terminal-content">
+            <div class="term-output" id="termOutput">LunaOS Terminal v1.0
+Gõ 'help' để xem các lệnh có sẵn.
+</div>
+            <div class="term-input-line">
+                <span class="prompt">luna@os:~$</span>
+                <input class="term-input" autocomplete="off" spellcheck="false">
+            </div>
+        </div>`;
+    const input = el.querySelector('.term-input');
+    const output = el.querySelector('#termOutput');
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); e.stopPropagation();
+            const cmd = input.value.trim();
+            input.value = '';
+            output.innerHTML += `<div><span class="prompt">luna@os:~$</span> ${esc(cmd)}</div>`;
+            output.scrollTop = output.scrollHeight;
+            handleCommand(cmd, output, ctx);
+            input.focus();
+            requestAnimationFrame(() => input.focus());
+        }
+    });
+    el.addEventListener('click', () => input.focus());
+}
+function handleCommand(cmd, output, ctx) {
+    const parts = cmd.split(' ');
+    const base = parts[0].toLowerCase();
+    let result = '';
+    switch (base) {
+        case 'help': result = 'help, ls, date, whoami, echo, clear, neofetch, calc [expr], accent [0-4], open [app]\n'; break;
+        case 'ls':   result = 'Desktop/  Documents/  Downloads/  Music/  Pictures/  Projects/\n'; break;
+        case 'date': result = dayjs().format('dddd, DD/MM/YYYY HH:mm:ss') + '\n'; break;
+        case 'whoami': result = 'luna\n'; break;
+        case 'echo': result = parts.slice(1).join(' ') + '\n'; break;
+        case 'clear': output.innerHTML = ''; return;
+        case 'neofetch':
+            result = `      /\\_/\\
+     ( o.o )  LunaOS 1.0 "Starlight"
+      > ^ <   Kernel: 6.1.0-luna
+    /  _  \\  Uptime: ${Math.floor(performance.now()/60000)} phút
+   /  / \\  \\ Shell: lunash 5.2
+  /__/   \\__\\ DE: LunaDE
+`;
+            break;
+        case 'calc':
+            try {
+                const expr = parts.slice(1).join(' ');
+                result = `${expr} = ${math.evaluate(expr)}\n`;
+            } catch { result = 'Lỗi biểu thức\n'; }
+            break;
+        case 'accent':
+            const i = parseInt(parts[1]);
+            if (!isNaN(i) && ctx.accents[i]) {
+                ctx.applyAccent(i);
+                result = `Đã đổi accent: ${ctx.accents[i].name}\n`;
+            } else result = 'Dùng: accent [0-4]\n';
+            break;
+        case 'open':
+            const app = parts[1];
+            if (APPS[app]) { ctx.openApp(app); result = `Đã mở ${app}\n`; }
+            else result = `Không tìm thấy: ${app}\n`;
+            break;
+        case '': result = ''; break;
+        default: result = `lunash: command not found: ${base}\n`;
+    }
+    output.innerHTML += `<div style="color:#cbd5e1">${esc(result)}</div>`;
+    output.scrollTop = output.scrollHeight;
+}
+
+/* ----- NOTES ----- */
+function renderNotes(ctx, el) {
+    const saved = localStorage.getItem('luna-notes') || '';
+    const content = el.querySelector('.window-content');
+    content.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <textarea class="note-textarea" placeholder="Viết ghi chú...">${esc(saved)}</textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="btn danger" data-act="clear">Xóa</button>
+                <button class="btn" data-act="save">Lưu</button>
+            </div>
+            <div style="font-size:11px;color:#8b9dc3;" data-status>Tự động lưu mỗi 2 giây</div>
+        </div>`;
+    const area = content.querySelector('.note-textarea');
+    const status = content.querySelector('[data-status]');
+    content.querySelector('[data-act=save]').onclick = () => {
+        localStorage.setItem('luna-notes', area.value);
+        status.textContent = '✅ Đã lưu lúc ' + dayjs().format('HH:mm:ss');
+        ctx.toast('📝 Đã lưu');
+    };
+    content.querySelector('[data-act=clear]').onclick = () => {
+        area.value = ''; localStorage.setItem('luna-notes', '');
+        status.textContent = 'Đã xóa';
+        ctx.toast('🗑️ Đã xóa');
+    };
+    let t;
+    area.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+            localStorage.setItem('luna-notes', area.value);
+            status.textContent = '💾 Tự động lưu lúc ' + dayjs().format('HH:mm:ss');
+        }, 2000);
+    });
+}
+
+/* ----- CALCULATOR (math.js) ----- */
+function renderCalc(ctx, el) {
+    const content = el.querySelector('.window-content');
+    content.innerHTML = `
+        <div class="calc-display" data-display>0</div>
+        <div class="calc-grid">
+            <button class="calc-btn clear" data-k="C">C</button>
+            <button class="calc-btn op" data-k="(">(</button>
+            <button class="calc-btn op" data-k=")">)</button>
+            <button class="calc-btn op" data-k="/">÷</button>
+            <button class="calc-btn" data-k="7">7</button>
+            <button class="calc-btn" data-k="8">8</button>
+            <button class="calc-btn" data-k="9">9</button>
+            <button class="calc-btn op" data-k="*">×</button>
+            <button class="calc-btn" data-k="4">4</button>
+            <button class="calc-btn" data-k="5">5</button>
+            <button class="calc-btn" data-k="6">6</button>
+            <button class="calc-btn op" data-k="-">−</button>
+            <button class="calc-btn" data-k="1">1</button>
+            <button class="calc-btn" data-k="2">2</button>
+            <button class="calc-btn" data-k="3">3</button>
+            <button class="calc-btn op" data-k="+">+</button>
+            <button class="calc-btn" data-k="0" style="grid-column:span 2">0</button>
+            <button class="calc-btn" data-k=".">.</button>
+            <button class="calc-btn eq" data-k="=">=</button>
+        </div>`;
+    const display = content.querySelector('[data-display]');
+    let expr = '', shown = '0';
+    content.querySelectorAll('.calc-btn').forEach(btn => {
+        btn.onclick = () => {
+            const k = btn.dataset.k;
+            if (k === 'C') { expr = ''; shown = '0'; }
+            else if (k === '=') {
+                try { shown = String(math.evaluate(expr || '0')); expr = shown; }
+                catch { shown = 'Lỗi'; expr = ''; }
+            } else {
+                if (expr === '0' && !isNaN(k)) expr = k;
+                else if (shown === 'Lỗi') expr = k;
+                else expr += k;
+                shown = expr;
+            }
+            display.textContent = shown;
+        };
+    });
+}
+
+/* ----- FILES ----- */
+const FS = {
+    Documents: [
+        { name:'báo-cáo.txt', size:'12 KB' },
+        { name:'kế-hoạch.docx', size:'48 KB' },
+        { name:'dự-án-luna.md', size:'3 KB' },
+    ],
+    Pictures: [
+        { name:'moon.jpg', size:'1.2 MB' },
+        { name:'stars.png', size:'840 KB' },
+    ],
+    Projects: [
+        { name:'lunaos-source.zip', size:'4.5 MB' },
+        { name:'readme.txt', size:'2 KB' },
+    ],
+};
+function renderFiles(ctx, el) {
+    const content = el.querySelector('.window-content');
+    let html = '<div class="file-list">';
+    html += `<div class="file-item" style="color:var(--accent);font-weight:600;">📁 Thư mục gốc</div>`;
+    for (const [folder, files] of Object.entries(FS)) {
+        html += `<div class="file-item" style="padding-left:24px;"><i class="fas fa-folder"></i>${folder}<span class="size">${files.length} mục</span></div>`;
+        files.forEach(f => {
+            html += `<div class="file-item" style="padding-left:44px;" data-file="${esc(f.name)}"><i class="fas fa-file"></i>${esc(f.name)}<span class="size">${f.size}</span></div>`;
+        });
+    }
+    html += '</div>';
+    content.innerHTML = html;
+    content.querySelectorAll('[data-file]').forEach(el2 => {
+        el2.onclick = () => ctx.toast('📄 Mở ' + el2.dataset.file + ' (demo)');
+    });
+}
+
+/* ----- SETTINGS ----- */
+function renderSettings(ctx, el) {
+    const content = el.querySelector('.window-content');
+    let wallSwatches = '';
+    ctx.walls.forEach((w, i) => {
+        wallSwatches += `<div class="swatch ${i===ctx.currentWall?'active':''}" data-wall="${i}" style="background:${w}"></div>`;
+    });
+    let accentSwatches = '';
+    ctx.accents.forEach((a, i) => {
+        accentSwatches += `<div class="swatch ${i===ctx.currentAccent?'active':''}" data-accent="${i}" style="background:${a.c}"></div>`;
+    });
+    content.innerHTML = `
+        <div class="settings-row"><span>🌄 Hình nền</span><div class="picker">${wallSwatches}</div></div>
+        <div class="settings-row"><span>🎨 Màu accent</span><div class="picker">${accentSwatches}</div></div>
+        <div class="settings-row"><span>🔔 Thông báo</span><button class="btn" data-act="mute">Tắt</button></div>
+        <div class="settings-row"><span>⌨️ Phím tắt</span><span style="color:#8b9dc3;font-size:11px;">Ctrl+Alt+T/N/C/F/S</span></div>
+        <div class="settings-row"><span>ℹ️ Phiên bản</span><span style="color:#8b9dc3;">LunaOS 1.0</span></div>
+        <div class="settings-row"><span>🗑️ Xóa dữ liệu</span><button class="btn danger" data-act="reset">Reset</button></div>`;
+    content.querySelectorAll('[data-wall]').forEach(sw => {
+        sw.onclick = () => {
+            content.querySelectorAll('[data-wall]').forEach(s => s.classList.remove('active'));
+            sw.classList.add('active');
+            ctx.currentWall = parseInt(sw.dataset.wall);
+            localStorage.setItem('luna-wall', ctx.currentWall);
+            ctx.toast('🖼️ Đã đổi hình nền');
+        };
+    });
+    content.querySelectorAll('[data-accent]').forEach(sw => {
+        sw.onclick = () => {
+            content.querySelectorAll('[data-accent]').forEach(s => s.classList.remove('active'));
+            sw.classList.add('active');
+            ctx.applyAccent(parseInt(sw.dataset.accent));
+            ctx.toast('🎨 Accent: ' + ctx.accents[parseInt(sw.dataset.accent)].name);
+        };
+    });
+    content.querySelector('[data-act=mute]').onclick = () => ctx.toast('🔕 Đã tắt thông báo (demo)');
+    content.querySelector('[data-act=reset]').onclick = () => {
+        localStorage.clear();
+        ctx.toast('Đã xóa dữ liệu, tải lại...');
+        setTimeout(() => location.reload(), 800);
+    };
+}
+
+/* ----- POMODORO ----- */
+function renderPomodoro(ctx, el) {
+    const content = el.querySelector('.window-content');
+    const WORK = 25*60, BREAK = 5*60, CIRC = 2*Math.PI*70;
+    let remaining = WORK, mode = 'work', running = false, timer = null;
+    content.innerHTML = `
+        <div class="pomo-wrap">
+            <div class="pomo-ring">
+                <svg width="160" height="160" viewBox="0 0 160 160">
+                    <circle class="track" cx="80" cy="80" r="70"/>
+                    <circle class="progress" cx="80" cy="80" r="70" stroke-dasharray="${CIRC}" stroke-dashoffset="0"/>
+                </svg>
+                <div class="pomo-time">25:00</div>
+            </div>
+            <div class="pomo-status">TẬP TRUNG</div>
+            <div class="pomo-controls">
+                <button class="btn" data-act="start">Bắt đầu</button>
+                <button class="btn danger" data-act="reset">Đặt lại</button>
+            </div>
+        </div>`;
+    const timeEl = content.querySelector('.pomo-time');
+    const statusEl = content.querySelector('.pomo-status');
+    const progress = content.querySelector('.progress');
+    const startBtn = content.querySelector('[data-act=start]');
+    const fmt = s => String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+    function updateUI() {
+        timeEl.textContent = fmt(remaining);
+        statusEl.textContent = mode === 'work' ? 'TẬP TRUNG' : 'NGHỈ NGƠI';
+        const total = mode === 'work' ? WORK : BREAK;
+        progress.style.strokeDashoffset = -(CIRC * (1 - remaining/total));
+    }
+    function tick() {
+        if (!running) return;
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(timer); running = false;
+            startBtn.textContent = 'Bắt đầu';
+            if (mode === 'work') { ctx.toast('🍅 Hết giờ! Nghỉ 5 phút.'); mode='break'; remaining=BREAK; }
+            else { ctx.toast('✅ Hết giờ nghỉ!'); mode='work'; remaining=WORK; }
+        }
+        updateUI();
+    }
+    startBtn.onclick = () => {
+        running = !running;
+        startBtn.textContent = running ? 'Tạm dừng' : 'Bắt đầu';
+        if (running) timer = setInterval(tick, 1000); else clearInterval(timer);
+    };
+    content.querySelector('[data-act=reset]').onclick = () => {
+        clearInterval(timer); running = false; mode='work'; remaining=WORK;
+        startBtn.textContent = 'Bắt đầu'; updateUI();
+    };
+    updateUI();
+}
+
+/* ============================================================
+   HELPERS + BOOT SCRIPT
+   ============================================================ */
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+const k  = (t,m,c) => ({d:60,  t, m, cls:c});
+const sy = (t,m,c) => ({d:130, t, m, cls:c});
+const sv = (t,m,c) => ({d:300, t, m, cls:c});
+const l  = (t,m,c) => ({d:400, t, m, cls:c});
+const v  = (t,m,c) => ({d:350, t, m, cls:c});
+const f  = (t,m,c) => ({d:170, t, m, cls:c});
+
+const BOOT_SCRIPT = [
+    k('0.000000','Linux version 6.1.0-luna (luna@lunabuild) (gcc 12.2.0) #1 SMP PREEMPT_DYNAMIC'),
+    k('0.000000','Command line: BOOT_IMAGE=/vmlinuz-luna root=/dev/sda2 ro quiet splash'),
+    k('0.000000','BIOS-provided physical RAM map:'),
+    k('0.000000','BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable'),
+    k('0.000000','BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff] reserved'),
+    k('0.000000','BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff] reserved'),
+    k('0.000000','BIOS-e820: [mem 0x0000000000100000-0x00000000bffdffff] usable'),
+    k('0.000000','BIOS-e820: [mem 0x00000000bffe0000-0x00000000bfffffff] reserved'),
+    k('0.000000','NX (Execute Disable) protection: active'),
+    k('0.000123','SMBIOS 3.0.0 present.'),
+    k('0.000234','DMI: Luna Systems LunaBook Pro/LunaBoard, BIOS 1.2.3 06/15/2024'),
+    k('0.001234','CPU0: Intel(R) Core(TM) i7-1165G7 @ 2.80GHz (family: 0x6, model: 0x8c, stepping: 0x1)'),
+    k('0.001456','smpboot: Allowing 8 CPUs, 0 hotplug CPUs'),
+    k('0.002345','Memory: 8123456K/8388608K available (16384K kernel code, 2048K rwdata)'),
+    k('0.003456','ACPI: Core revision 20221020'),
+    k('0.004567','ACPI: Added _OSI(Module Device)'),
+    k('0.005678','ACPI: Added _OSI(Processor Device)'),
+    k('0.006789','ACPI: Added _OSI(3.0 _SCP Extensions)'),
+    k('0.007890','ACPI: Added _OSI(Processor Aggregator Device)'),
+    k('0.010000','ACPI: 8 ACPI AML tables successfully acquired and loaded'),
+    k('0.012345','ACPI: Interpreter enabled'),
+    k('0.015000','PCI: Using configuration type 1 for base access'),
+    k('0.018000','PCI: Probing PCI hardware'),
+    k('0.020000','pci 0000:00:00.0: [8086:9a14] type 00 class 0x060000'),
+    k('0.022000','pci 0000:00:02.0: [8086:9a49] type 00 class 0x030000'),
+    k('0.024000','pci 0000:00:14.0: [8086:a0ed] type 00 class 0x0c0330'),
+    k('0.026000','pci 0000:00:1f.3: [8086:a0c8] type 00 class 0x040300'),
+    k('0.028000','pci 0000:01:00.0: [8086:2725] type 00 class 0x028000'),
+    k('0.030000','pci_bus 0000:00: root bus resource [mem 0x00000000-0xfeffffff]'),
+    k('0.032000','pci_bus 0000:00: root bus resource [io  0x0000-0xffff]'),
+    k('0.040000','usbcore: registered new interface driver usbfs'),
+    k('0.042000','usbcore: registered new interface driver hub'),
+    k('0.044000','usbcore: registered new device driver usb'),
+    k('0.050000','usb 1-1: new high-speed USB device number 2 using xhci_hcd'),
+    k('0.060000','usb 1-1: New USB device found, idVendor=1d6b, idProduct=0002'),
+    k('0.070000','input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input0'),
+    k('0.080000','input: SynPS/2 Synaptics TouchPad as /devices/platform/i8042/serio1/input/input2'),
+    k('0.090000','ahci 0000:00:17.0: version 3.0'),
+    k('0.100000','ahci 0000:00:17.0: AHCI 0001.0301 32 slots 1 ports 6 Gbps'),
+    k('0.110000','ata1: SATA max UDMA/133 abar m2048@0x82200000 port 0x82200100 irq 125'),
+    k('0.120000','ata1: SATA link up 6.0 Gbps (SStatus 133 SControl 300)'),
+    k('0.130000','ata1.00: ATA-11: LUNA SSD 256GB, LUN1.0, max UDMA/133'),
+    k('0.140000','ata1.00: 500118192 sectors, multi 16: LBA48 NCQ'),
+    k('0.150000','scsi 0:0:0:0: Direct-Access ATA LUNA SSD 256GB 1.0 PQ: 0 ANSI: 5'),
+    k('0.160000','sd 0:0:0:0: [sda] 500118192 512-byte logical blocks: (256 GB/238 GiB)'),
+    k('0.170000','sd 0:0:0:0: [sda] Write Protect is off'),
+    k('0.180000','EXT4-fs (sda2): mounted filesystem with ordered data mode'),
+    k('0.190000','VFS: Mounted root (ext4 filesystem) readonly on device 8:2.'),
+    k('0.200000','Freeing unused kernel image (initmem) memory: 3072K'),
+    k('0.210000','Run /sbin/init as init process','ok'),
+    sy('0.500000','systemd[1]: systemd 252.5-1-luna running in system mode (+PAM +AUDIT +SELINUX +APPARMOR)'),
+    sy('0.510000','systemd[1]: Detected architecture x86-64.'),
+    sy('0.520000','systemd[1]: Hostname set to <luna-workstation>.'),
+    sy('0.540000','systemd[1]: Initializing machine ID from random generator.'),
+    sy('0.560000','systemd[1]: Queued start job for default target graphical.target.'),
+    sy('0.580000','systemd[1]: Created slice system-getty.slice.'),
+    sy('0.600000','systemd[1]: Created slice system-modprobe.slice.'),
+    sy('0.620000','systemd[1]: Created slice system-systemd\\x2dfsck.slice.'),
+    sy('0.640000','systemd[1]: Created slice user.slice.'),
+    sy('0.660000','systemd[1]: Started Dispatch Password Requests to Console Directory Watch.'),
+    sy('0.680000','systemd[1]: Started Forward Password Requests to Wall Directory Watch.'),
+    sy('0.700000','systemd[1]: Reached target Local Encrypted Volumes.'),
+    sy('0.720000','systemd[1]: Reached target Local Integrity Protected Volumes.'),
+    sy('0.740000','systemd[1]: Reached target Paths.'),
+    sy('0.760000','systemd[1]: Reached target Remote File Systems.'),
+    sy('0.780000','systemd[1]: Reached target Slices.'),
+    sy('0.800000','systemd[1]: Reached target Swap.'),
+    sy('0.820000','systemd[1]: Listening on Device-mapper event daemon FIFOs.'),
+    sy('0.840000','systemd[1]: Listening on Process Core Dump Socket.'),
+    sy('0.860000','systemd[1]: Listening on initctl Compatibility Named Pipe.'),
+    sy('0.880000','systemd[1]: Listening on udev Control Socket.'),
+    sy('0.900000','systemd[1]: Listening on udev Kernel Socket.'),
+    sy('0.920000','systemd[1]: Mounting Huge Pages File System...'),
+    sy('0.940000','systemd[1]: Mounting POSIX Message Queue File System...'),
+    sy('0.960000','systemd[1]: Mounting Kernel Debug File System...'),
+    sy('0.980000','systemd[1]: Starting Create list of static device nodes for the current kernel...'),
+    sy('1.000000','systemd[1]: Starting Load Kernel Module configfs...'),
+    sy('1.020000','systemd[1]: Starting Load Kernel Module drm...'),
+    sy('1.040000','systemd[1]: Starting Load Kernel Module fuse...'),
+    sy('1.060000','systemd[1]: Finished Create list of static device nodes.','ok'),
+    sy('1.080000','systemd[1]: Mounted Huge Pages File System.','ok'),
+    sv('1.500000','systemd[1]: Starting Journal Service...'),
+    sv('1.600000','systemd[1]: Started Journal Service.','ok'),
+    sv('1.700000','systemd-journald[312]: Journal started'),
+    sv('1.800000','systemd-udevd[298]: Starting version 252.5-1-luna'),
+    sv('1.900000','udevadm[301]: Triggering device events...'),
+    sv('2.000000','systemd[1]: Starting Flush Journal to Persistent Storage...','ok'),
+    sv('2.200000','systemd[1]: Starting Load Kernel Modules...'),
+    sv('2.300000',"systemd-modules-load[350]: Inserted module 'fuse'"),
+    sv('2.400000',"systemd-modules-load[350]: Inserted module 'loop'"),
+    sv('2.500000',"systemd-modules-load[350]: Inserted module 'dm_mod'"),
+    sv('2.600000','systemd[1]: Finished Load Kernel Modules.','ok'),
+    sv('2.700000','systemd[1]: Starting Apply Kernel Variables...'),
+    sv('2.800000',"systemd-sysctl[370]: Couldn't write 'net.core.bpf_jit_harden': Permission denied",'warn'),
+    sv('3.000000','systemd[1]: Finished Apply Kernel Variables.','ok'),
+    sv('3.100000','systemd[1]: Starting Remount Root and Kernel File Systems...'),
+    sv('3.200000','EXT4-fs (sda2): re-mounted. Opts: (null)'),
+    sv('3.300000','systemd[1]: Finished Remount Root and Kernel File Systems.','ok'),
+    sv('3.400000','systemd[1]: Starting Create Static Device Nodes in /dev...'),
+    sv('3.500000','systemd[1]: Finished Create Static Device Nodes in /dev.','ok'),
+    sv('3.600000','systemd[1]: Starting udev Coldplug all Devices...'),
+    sv('3.800000','systemd[1]: Started udev Kernel Device Manager.','ok'),
+    sv('4.000000','systemd[1]: Reached target Local File Systems (Pre).'),
+    sv('4.200000','systemd[1]: Mounting /boot...'),
+    sv('4.400000','systemd[1]: Mounted /boot.','ok'),
+    sv('4.600000','systemd[1]: Mounting /home...'),
+    sv('4.800000','systemd[1]: Mounted /home.','ok'),
+    sv('5.000000','systemd[1]: Reached target Local File Systems.'),
+    sv('5.200000','systemd[1]: Starting Load AppArmor profiles...'),
+    sv('5.400000','apparmor.systemd[420]: Loading AppArmor profiles'),
+    sv('5.600000','systemd[1]: Finished Load AppArmor profiles.','ok'),
+    sv('6.000000','systemd[1]: Starting Network Manager...'),
+    sv('6.400000','NetworkManager[502]: <info> NetworkManager (version 1.42.0) is starting...'),
+    sv('6.800000','NetworkManager[502]: <info> [luna] Read config: /etc/NetworkManager/NetworkManager.conf'),
+    sv('7.200000','NetworkManager[502]: <info> [luna] manager: startup complete'),
+    sv('7.600000','systemd[1]: Started Network Manager.','ok'),
+    sv('8.000000','systemd[1]: Reached target Network.'),
+    sv('8.500000','systemd[1]: Starting OpenSSH Daemon...'),
+    sv('9.000000','sshd[601]: Server listening on 0.0.0.0 port 22.'),
+    sv('9.500000','systemd[1]: Started OpenSSH Daemon.','ok'),
+    sv('10.000000','systemd[1]: Starting Bluetooth service...'),
+    sv('10.500000','bluetoothd[650]: Bluetooth daemon 5.66'),
+    sv('11.000000','systemd[1]: Started Bluetooth service.','ok'),
+    l('12.000000','systemd[1]: Starting CUPS Scheduler...'),
+    l('12.800000','cupsd[720]: cupsd started - HP, Canon, Epson drivers loaded'),
+    l('13.600000','systemd[1]: Started CUPS Scheduler.','ok'),
+    l('14.400000','systemd[1]: Starting Avahi mDNS/DNS-SD Stack...'),
+    l('15.200000','avahi-daemon[800]: Successfully called chroot().'),
+    l('16.000000','avahi-daemon[800]: Server startup complete. Host name is luna-workstation.local.'),
+    l('16.800000','systemd[1]: Started Avahi mDNS/DNS-SD Stack.','ok'),
+    l('17.600000','systemd[1]: Starting Modem Manager...'),
+    l('18.400000','ModemManager[850]: <info> ModemManager (version 1.20.0) starting...'),
+    l('19.200000','systemd[1]: Started Modem Manager.','ok'),
+    l('20.000000','systemd[1]: Starting Login Service...'),
+    l('20.800000','systemd-logind[880]: New seat seat0.'),
+    l('21.600000','systemd-logind[880]: Watching system buttons on /dev/input/event0'),
+    l('22.400000','systemd[1]: Started Login Service.','ok'),
+    l('23.200000','systemd[1]: Starting Thermal Daemon Service...'),
+    l('24.000000','thermald[920]: Polling mode is enabled.'),
+    l('24.800000','systemd[1]: Started Thermal Daemon Service.','ok'),
+    l('25.600000','systemd[1]: Reached target Multi-User System.','ok'),
+    v('26.500000','systemd[1]: Reached target Graphical Interface.'),
+    v('27.000000','systemd[1]: Starting Luna Display Manager...'),
+    v('27.500000','luna-dm[1000]: Initializing display server (X11 + Wayland fallback)'),
+    v('28.000000','luna-dm[1000]: Loading GPU driver: i915 (Intel Iris Xe)'),
+    v('28.500000','luna-dm[1000]: GPU acceleration: enabled (Mesa 23.1.0)'),
+    v('29.000000','luna-dm[1000]: Compositor: luna-compositor 1.0'),
+    v('29.500000','luna-dm[1000]: Session manager ready'),
+    v('30.000000','luna-dm[1000]: Starting session for user "luna"'),
+    v('30.500000','pam_unix(luna-dm:session): session opened for user luna(uid=1000) by (uid=0)','ok'),
+    v('31.000000','luna-shell[1100]: LunaOS Shell v1.0 initializing...'),
+    v('31.500000','luna-shell[1100]: Loading panel, dock, wallpaper, icons'),
+    v('32.000000','luna-shell[1100]: Theme: Starlight Dark (accent: #7f9cf5)'),
+    v('32.500000','luna-shell[1100]: Desktop ready.'),
+    f('33.000000','systemd[1]: Startup finished in 33.000s (kernel) + 0.000s (userspace)','accent'),
+    f('33.000000',''),
+    f('33.000000','     Welcome to LunaOS 1.0 "Starlight"','accent'),
+    f('33.000000','     ─────────────────────────────────','accent'),
+    f('33.000000','     Nhấn ESC trong 1.5s tới để bỏ qua...','warn'),
+];
+</script>
+</body>
+</html>
